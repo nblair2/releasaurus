@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: ./.github/actions/rust-pull-cache
+      - uses: ./.github/actions/rust-push-pull-cache
         with:
           components: clippy
       - name: lint
