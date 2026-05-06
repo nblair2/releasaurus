@@ -251,7 +251,9 @@ impl From<CliPackageOverrides> for PackageOverrides {
 #[derive(Debug, Clone, Args)]
 pub struct SharedCommandOverrides {
     /// Override package properties using dot notation
-    /// Example: --set-package my-pkg.prerelease.suffix=beta
+    /// Example: "--set-package my-pkg.prerelease.suffix=beta".
+    /// To disable prerelease for a package:
+    /// --set-package my-pkg.prerelease.suffix=""
     #[arg(
         long = "set-package",
         value_parser = parse_package_override,
@@ -265,7 +267,10 @@ pub struct SharedCommandOverrides {
     tag_prefix: Option<String>,
 
     /// Global override for prerelease suffix. Overrides package config. Can
-    /// be overridden via explicit "--set-package" override
+    /// be overridden via explicit "--set-package" override. To disable
+    /// prerelease for all packages use --prerelease-suffix="". To disable
+    /// prerelease for a specific package use
+    /// --set-package my-pkg.prerelease.suffix=""
     #[arg(long)]
     prerelease_suffix: Option<String>,
 

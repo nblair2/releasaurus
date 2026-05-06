@@ -533,13 +533,13 @@ to fetch the complete history:
 # GitHub Actions / Gitea Actions
 - uses: actions/checkout@v5
   with:
-    fetch-depth: 0  # full history + all tags
+    fetch-depth: 0 # full history + all tags
 ```
 
 ```yaml
 # GitLab CI (fresh clone)
 variables:
-  GIT_DEPTH: 0  # full history + all tags
+  GIT_DEPTH: 0 # full history + all tags
 ```
 
 If the runner reuses an existing workspace (`GIT_STRATEGY: fetch`),
@@ -611,9 +611,22 @@ releasaurus release-pr \
   --forge github \
   --repo "https://github.com/owner/repo"
 
+# Override global disable prerelease for all packages
+releasaurus release-pr \
+  --prerelease-suffix="" \
+  --prerelease-strategy versioned \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
 # Override package-specific prerelease suffix
 releasaurus release-pr \
   --set-package my-pkg.prerelease.suffix=rc \
+  --forge github \
+  --repo "https://github.com/owner/repo"
+
+# Override package-specific disable prerelease for target package
+releasaurus release-pr \
+  --set-package my-pkg.prerelease.suffix="" \
   --forge github \
   --repo "https://github.com/owner/repo"
 
