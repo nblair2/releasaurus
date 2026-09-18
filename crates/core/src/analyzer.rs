@@ -108,6 +108,15 @@ impl<'a> Analyzer<'a> {
                      {}: nothing to release",
                     current.semver
                 );
+                if self.config.version_type.is_date_based() {
+                    log::info!(
+                        "for same-day releases, use version_type = \
+                         \"year.month.day+hour.minute.second.micro\"; \
+                         if the clock still does not advance, retry later \
+                         or check for clock skew/future tags; existing tags \
+                         are never moved"
+                    );
+                }
                 return Ok(false);
             }
         }

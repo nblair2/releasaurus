@@ -286,11 +286,17 @@ versioning = { version_type = "year.month.day+hour.minute.second" }
 - **`major.minor.patch+timestamp.sha`** — semver with build metadata of the
   form `{commit-timestamp}.{short-sha}`, for sortable, traceable builds.
 - **`year.month.day`** and the `+hour.minute.second[.micro]` variants —
-  calendar-based versions derived from the current UTC time; commits and
-  the previous tag are ignored. Plain `year.month.day` allows **one
-  release per day** by design; a same-day re-run reports nothing to
-  release. Use a time-based variant when you need multiple releases per
-  day.
+  versions derived from preparation-time UTC, with relevant commits required
+  and a guard against reusing or decreasing the previous version. Plain
+  `year.month.day` allows one release per UTC day: another feature or fix
+  does not open a second pending PR. Rerun after midnight, or set
+  `version_type = "year.month.day+hour.minute.second.micro"` for same-day
+  hotfixes without deleting tags. Publication retains the reviewed PR tag,
+  even when merged the next day.
+
+Timestamp metadata reduces collisions but does not serialize concurrent jobs;
+serialize release CI runs and retry clock collisions. External SemVer precedence
+ignores build metadata, so check registry support before publishing packages.
 
 `major.minor.patch` and `major.minor.patch+timestamp.sha` both honor
 `[prerelease]` (below) and the semver increment controls
