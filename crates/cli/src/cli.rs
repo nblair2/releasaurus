@@ -48,10 +48,14 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub base_branch: Option<String>,
 
-    /// Path to the configuration file. Defaults to "releasaurus.toml" in the
-    /// repository root
+    /// Configuration path in the selected repository, not the runner's cwd
+    /// Defaults to "releasaurus.toml"
     #[arg(long, global = true, env = "RELEASAURUS_CONFIG")]
     pub config: Option<PathBuf>,
+
+    /// Explicit config file on this machine
+    #[arg(long, global = true, conflicts_with = "config")]
+    pub local_config: Option<PathBuf>,
 
     /// Subcommand to execute
     #[command(subcommand)]

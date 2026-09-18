@@ -1,10 +1,28 @@
-//! Loads `releasaurus.toml` from a repository via a [`Forge`].
+//! Loads configuration from a repository via a [`Forge`] or an explicit local file.
 
 use crate::{
     config::{Config, DEFAULT_CONFIG_FILE},
     forge::{request::GetFileContentRequest, traits::Forge},
     result::{ReleasaurusError, Result},
 };
+
+/// Read an explicitly selected local file without falling back to defaults.
+pub fn load_local_config(path: &std::path::Path) -> Result<Config> {
+    log::info!("Loading local configuration from: {}", path.display());
+    let content = std::fs::read_to_string(path).map_err(|error| {
+        ReleasaurusError::invalid_config(format!(
+            "failed to read local configuration '{}': {error}",
+            path.display()
+        ))
+    })?;
+    ::toml::from_str(&content).map_err(|error: ::toml::de::Error| {
+        ReleasaurusError::invalid_config(format!(
+            "failed to parse local configuration '{}': {}",
+            path.display(),
+            error.message()
+        ))
+    })
+}
 
 /// Load and parse `releasaurus.toml` from the repository root.
 ///
@@ -61,6 +79,25 @@ base_branch = "develop"
 first_release_search_depth = 50
 tag_search_depth = 10
 "#;
+
+    #[test]
+    fn local_config_uses_typed_parsing_and_rejects_invalid_files() {
+        let file = tempfile::NamedTempFile::new().unwrap();
+        let content = format!(
+            "{TOML}\n[defaults.versioning]\nversion_type = \"year.month.day\""
+        );
+        std::fs::write(file.path(), content).unwrap();
+        let config = load_local_config(file.path()).unwrap();
+        assert_eq!(config.repository.tag_search_depth, 10);
+        let versioning = config.defaults.versioning.unwrap();
+        assert!(versioning.version_type.unwrap().is_date_based());
+        for invalid in ["[defaults", "unknown = true # private-comment"] {
+            std::fs::write(file.path(), invalid).unwrap();
+            let error = load_local_config(file.path()).unwrap_err().to_string();
+            assert!(error.contains("local configuration"), "{error}");
+            assert!(!error.contains("private-comment"), "{error}");
+        }
+    }
 
     /// A forge that serves `TOML` at `path` and nothing anywhere else.
     fn forge_serving(path: &'static str) -> MockForge {

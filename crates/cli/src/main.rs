@@ -18,7 +18,7 @@ use clap::Parser;
 use color_eyre::eyre::{Result, bail};
 use releasaurus::cli::{Cli, Command, GetCommand, get};
 use releasaurus_core::config::overrides::PackageOverrides;
-use releasaurus_core::forge::config_loader::load_config;
+use releasaurus_core::forge::config_loader::{load_config, load_local_config};
 use releasaurus_core::forge::manager::{ForgeManager, ForgeOptions};
 use releasaurus_core::orchestrator::Orchestrator;
 use releasaurus_core::resolver::Resolver;
@@ -105,6 +105,11 @@ async fn create_orchestrator(
     cli: &Cli,
     dry_run: bool,
 ) -> Result<(Orchestrator, String)> {
+    let local_config = cli
+        .local_config
+        .as_deref()
+        .map(load_local_config)
+        .transpose()?;
     let mut forge = cli.forge_args.forge().await?;
 
     let global_overrides = cli.get_global_overrides();
@@ -120,14 +125,17 @@ async fn create_orchestrator(
         .as_deref()
         .map(|p| p.to_string_lossy().into_owned());
 
-    let config = Rc::new(
-        load_config(
-            &*forge,
-            global_overrides.base_branch.as_deref(),
-            config_path.as_deref(),
-        )
-        .await?,
-    );
+    let config = Rc::new(match local_config {
+        Some(config) => config,
+        None => {
+            load_config(
+                &*forge,
+                global_overrides.base_branch.as_deref(),
+                config_path.as_deref(),
+            )
+            .await?
+        }
+    });
 
     forge.set_commit_search_depth(config.repository.first_release_search_depth);
     forge.set_tag_search_depth(config.repository.tag_search_depth);
@@ -282,6 +290,40 @@ async fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_config_conflicts_with_repository_config() {
+        let error = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--local-config",
+            "local.toml",
+            "--config",
+            "remote.toml",
+        ])
+        .unwrap_err();
+        assert_eq!(error.kind(), clap::error::ErrorKind::ArgumentConflict);
+    }
+
+    #[tokio::test]
+    async fn missing_local_config_fails_before_forge_access() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("missing.toml");
+        let cli = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--local-config",
+            path.to_str().unwrap(),
+        ])
+        .unwrap();
+        let error = create_orchestrator(&cli, false)
+            .await
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains("local configuration"), "{error}");
+        assert!(error.contains("missing.toml"), "{error}");
+    }
 
     fn create_base_args() -> Vec<String> {
         vec![
