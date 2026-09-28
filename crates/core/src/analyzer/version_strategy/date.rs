@@ -3,6 +3,7 @@ use semver::Version;
 
 use crate::{
     analyzer::version_strategy::{context::Context, traits::VersionStrategy},
+    config::versioning::VersionType,
     result::Result,
 };
 
@@ -35,6 +36,16 @@ impl DateParts {
         }
     }
 
+    /// Version core for `version_type`: `YY` types use the year minus 2000.
+    pub fn version(&self, version_type: VersionType) -> Version {
+        let year = if version_type.is_short_year() {
+            self.year - 2000
+        } else {
+            self.year
+        };
+        Version::new(year, self.month, self.day)
+    }
+
     /// `hour.minute.second`, zero-padded so a rendered tag sorts the same
     /// lexicographically as it does numerically — `git tag --list` and forge
     /// tag listings sort as text, unlike semver's own numeric comparison of
@@ -49,9 +60,8 @@ impl DateParts {
 pub struct DateVersionStrategy;
 
 impl VersionStrategy for DateVersionStrategy {
-    fn calculate_next_version(&self, _ctx: &Context) -> Result<Version> {
-        let parts = DateParts::now();
-        Ok(Version::new(parts.year, parts.month, parts.day))
+    fn calculate_next_version(&self, ctx: &Context) -> Result<Version> {
+        Ok(DateParts::now().version(ctx.config.version_type))
     }
 }
 

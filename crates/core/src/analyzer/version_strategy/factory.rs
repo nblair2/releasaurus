@@ -25,11 +25,20 @@ impl VersionStrategyFactory {
             VersionType::SemanticWithBuild => {
                 Ok(Box::new(SemanticBuildVersionStrategy))
             }
-            VersionType::Date => Ok(Box::new(DateVersionStrategy)),
-            VersionType::DateWithTime => {
+            VersionType::Date
+            | VersionType::DatePadded
+            | VersionType::ShortDate
+            | VersionType::ShortDatePadded => Ok(Box::new(DateVersionStrategy)),
+            VersionType::DateWithTime
+            | VersionType::DatePaddedWithTime
+            | VersionType::ShortDateWithTime
+            | VersionType::ShortDatePaddedWithTime => {
                 Ok(Box::new(DateWithTimeVersionStrategy))
             }
-            VersionType::DateWithTimeMicro => {
+            VersionType::DateWithTimeMicro
+            | VersionType::DatePaddedWithTimeMicro
+            | VersionType::ShortDateWithTimeMicro
+            | VersionType::ShortDatePaddedWithTimeMicro => {
                 Ok(Box::new(DateWithTimeMicroVersionStrategy))
             }
         }

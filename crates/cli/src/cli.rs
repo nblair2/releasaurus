@@ -408,6 +408,24 @@ pub enum CliVersionType {
     DateWithTime,
     #[value(name = "year.month.day+hour.minute.second.micro")]
     DateWithTimeMicro,
+    #[value(name = "YYYY.0M.0D")]
+    DatePadded,
+    #[value(name = "YYYY.0M.0D+hour.minute.second")]
+    DatePaddedWithTime,
+    #[value(name = "YYYY.0M.0D+hour.minute.second.micro")]
+    DatePaddedWithTimeMicro,
+    #[value(name = "YY.MM.DD")]
+    ShortDate,
+    #[value(name = "YY.MM.DD+hour.minute.second")]
+    ShortDateWithTime,
+    #[value(name = "YY.MM.DD+hour.minute.second.micro")]
+    ShortDateWithTimeMicro,
+    #[value(name = "YY.0M.0D")]
+    ShortDatePadded,
+    #[value(name = "YY.0M.0D+hour.minute.second")]
+    ShortDatePaddedWithTime,
+    #[value(name = "YY.0M.0D+hour.minute.second.micro")]
+    ShortDatePaddedWithTimeMicro,
 }
 
 #[derive(Debug, Clone, Default, Args)]
@@ -437,6 +455,25 @@ impl From<CliVersionType> for VersionType {
             CliVersionType::Date => VersionType::Date,
             CliVersionType::DateWithTime => VersionType::DateWithTime,
             CliVersionType::DateWithTimeMicro => VersionType::DateWithTimeMicro,
+            CliVersionType::DatePadded => VersionType::DatePadded,
+            CliVersionType::DatePaddedWithTime => {
+                VersionType::DatePaddedWithTime
+            }
+            CliVersionType::DatePaddedWithTimeMicro => {
+                VersionType::DatePaddedWithTimeMicro
+            }
+            CliVersionType::ShortDate => VersionType::ShortDate,
+            CliVersionType::ShortDateWithTime => VersionType::ShortDateWithTime,
+            CliVersionType::ShortDateWithTimeMicro => {
+                VersionType::ShortDateWithTimeMicro
+            }
+            CliVersionType::ShortDatePadded => VersionType::ShortDatePadded,
+            CliVersionType::ShortDatePaddedWithTime => {
+                VersionType::ShortDatePaddedWithTime
+            }
+            CliVersionType::ShortDatePaddedWithTimeMicro => {
+                VersionType::ShortDatePaddedWithTimeMicro
+            }
             CliVersionType::Semantic => VersionType::Semantic,
             CliVersionType::SemanticWithBuild => VersionType::SemanticWithBuild,
         }
@@ -803,6 +840,22 @@ mod tests {
                 assert!(matches!(err, ReleasaurusError::InvalidArgs(_)))
             }
         }
+    }
+
+    #[test]
+    fn version_type_flag_accepts_calver_formats() {
+        let cli = Cli::try_parse_from([
+            "releasaurus",
+            "release-pr",
+            "--version-type",
+            "YY.0M.0D+hour.minute.second",
+        ])
+        .unwrap();
+
+        assert_eq!(
+            cli.get_global_overrides().version_type,
+            Some(VersionType::ShortDatePaddedWithTime)
+        );
     }
 
     /// The accepted `--set-package` paths exist only as serde `rename`

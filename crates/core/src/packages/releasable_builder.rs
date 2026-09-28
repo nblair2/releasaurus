@@ -107,6 +107,7 @@ mod tests {
 
     fn create_test_release() -> Release {
         Release {
+            version: String::new(),
             tag: Tag {
                 sha: "abc123".to_string(),
                 name: "v1.0.0".to_string(),

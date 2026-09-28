@@ -11,9 +11,9 @@ use crate::{
 pub struct DateWithTimeMicroVersionStrategy;
 
 impl VersionStrategy for DateWithTimeMicroVersionStrategy {
-    fn calculate_next_version(&self, _ctx: &Context) -> Result<Version> {
+    fn calculate_next_version(&self, ctx: &Context) -> Result<Version> {
         let parts = DateParts::now();
-        let mut version = Version::new(parts.year, parts.month, parts.day);
+        let mut version = parts.version(ctx.config.version_type);
         // Padded to the six digits the microsecond field can hold, for the
         // same lexical-sort reason as the time segments.
         version.build = BuildMetadata::new(&format!(

@@ -169,6 +169,43 @@ pub struct Tag {
     pub timestamp: Option<i64>,
 }
 
+impl Tag {
+    /// Parses an unprefixed tag version. Falls back to stripping leading
+    /// zeros from `major.minor.patch` so zero-padded CalVer tags such as
+    /// `2026.09.08` resolve to their canonical semver (`2026.9.8`).
+    pub fn parse_version(
+        value: &str,
+    ) -> Result<semver::Version, semver::Error> {
+        let err = match semver::Version::parse(value) {
+            Ok(version) => return Ok(version),
+            Err(err) => err,
+        };
+
+        let core_len = value.find(['-', '+']).unwrap_or(value.len());
+        let (core, suffix) = value.split_at(core_len);
+        let parts: Vec<&str> = core.split('.').collect();
+
+        if parts.len() != 3
+            || parts
+                .iter()
+                .any(|p| p.is_empty() || !p.bytes().all(|b| b.is_ascii_digit()))
+        {
+            return Err(err);
+        }
+
+        let core = parts
+            .iter()
+            .map(|p| match p.trim_start_matches('0') {
+                "" => "0",
+                trimmed => trimmed,
+            })
+            .collect::<Vec<_>>()
+            .join(".");
+
+        semver::Version::parse(&format!("{core}{suffix}")).map_err(|_| err)
+    }
+}
+
 impl Default for Tag {
     fn default() -> Self {
         Self {
@@ -232,5 +269,37 @@ impl PartialEq for ForgeCommit {
 impl Hash for ForgeCommit {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_version_accepts_semver_and_zero_padded_cores() {
+        for (raw, canonical) in [
+            ("1.2.3-rc.1+build.5", "1.2.3-rc.1+build.5"),
+            ("2026.9.8", "2026.9.8"),
+            ("2026.09.08", "2026.9.8"),
+            ("26.09.08", "26.9.8"),
+            ("2026.10.00", "2026.10.0"),
+            ("2026.09.08+01.02.03.000004", "2026.9.8+01.02.03.000004"),
+        ] {
+            assert_eq!(
+                Tag::parse_version(raw).unwrap().to_string(),
+                canonical,
+                "{raw}"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_version_rejects_non_versions() {
+        for raw in
+            ["", "2026.09", "2026.09.08.1", "a.b.c", "2026..08", "v1.2.3"]
+        {
+            assert!(Tag::parse_version(raw).is_err(), "{raw}");
+        }
     }
 }

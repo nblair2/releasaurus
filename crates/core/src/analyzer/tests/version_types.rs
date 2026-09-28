@@ -570,3 +570,73 @@ fn test_date_with_time_build_metadata_is_zero_padded() {
     assert_eq!(segments.len(), 3);
     assert!(segments.iter().all(|s| s.len() == 2));
 }
+
+/// Padded types zero-pad the tag name and `{{ version }}` while the semver
+/// stays canonical, and `YY` types drop the century from the major.
+#[test]
+fn test_calver_padded_and_short_year_versions() {
+    let now = Utc::now();
+    for (version_type, major, padded) in [
+        (VersionType::DatePadded, now.year() as u64, true),
+        (VersionType::ShortDate, now.year() as u64 - 2000, false),
+        (
+            VersionType::ShortDatePaddedWithTime,
+            now.year() as u64 - 2000,
+            true,
+        ),
+    ] {
+        let config = AnalyzerConfig {
+            version_type,
+            tag_prefix: Some("v".into()),
+            body: "{{ version }}".into(),
+            ..AnalyzerConfig::default()
+        };
+        let analyzer = Analyzer::new(&config).unwrap();
+
+        let release = analyzer
+            .analyze(commit_for_date_test(), None)
+            .unwrap()
+            .unwrap();
+        let semver = &release.tag.semver;
+        let core = if padded {
+            format!("{major}.{:02}.{:02}", semver.minor, semver.patch)
+        } else {
+            format!("{major}.{}.{}", semver.minor, semver.patch)
+        };
+
+        assert_eq!(semver.major, major);
+        assert_eq!(semver.minor, u64::from(now.month()));
+        assert!(release.tag.name.starts_with(&format!("v{core}")));
+        assert!(release.notes.starts_with(&core));
+        assert_eq!(
+            Tag::parse_version(release.tag.name.trim_start_matches('v'))
+                .unwrap(),
+            *semver
+        );
+    }
+}
+
+/// A padded tag from earlier today parses back to today's semver, so the
+/// same-day stall check still applies.
+#[test]
+fn test_date_padded_same_day_is_not_releasable() {
+    let config = AnalyzerConfig {
+        version_type: VersionType::DatePadded,
+        ..AnalyzerConfig::default()
+    };
+    let analyzer = Analyzer::new(&config).unwrap();
+
+    let name = Utc::now().format("%Y.%m.%d").to_string();
+    let current_tag = Tag {
+        sha: "old123".to_string(),
+        semver: Tag::parse_version(&name).unwrap(),
+        name,
+        ..Tag::default()
+    };
+
+    let release = analyzer
+        .analyze(commit_for_date_test(), Some(current_tag))
+        .unwrap();
+
+    assert!(release.is_none());
+}

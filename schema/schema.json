@@ -518,7 +518,16 @@
         "major.minor.patch+timestamp.sha",
         "year.month.day",
         "year.month.day+hour.minute.second",
-        "year.month.day+hour.minute.second.micro"
+        "year.month.day+hour.minute.second.micro",
+        "YYYY.0M.0D",
+        "YYYY.0M.0D+hour.minute.second",
+        "YYYY.0M.0D+hour.minute.second.micro",
+        "YY.MM.DD",
+        "YY.MM.DD+hour.minute.second",
+        "YY.MM.DD+hour.minute.second.micro",
+        "YY.0M.0D",
+        "YY.0M.0D+hour.minute.second",
+        "YY.0M.0D+hour.minute.second.micro"
       ]
     },
     "PrereleaseConfig": {

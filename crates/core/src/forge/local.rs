@@ -439,7 +439,7 @@ impl Forge for LocalRepo {
                         break;
                     }
 
-                    let Ok(semver) = semver::Version::parse(
+                    let Ok(semver) = Tag::parse_version(
                         tag_prefix_regex.replace_all(stripped, "").as_ref(),
                     ) else {
                         continue;
@@ -847,6 +847,29 @@ mod tests {
 
         assert!(!result.is_empty(), "tag at branch head should be found");
         assert_eq!(result[0].name, "v1.0.0");
+    }
+
+    /// Zero-padded CalVer tags are not valid semver, but must still be found
+    /// and ordered by their canonical version.
+    #[tokio::test]
+    async fn zero_padded_calver_tags_are_found() {
+        let dir = TempDir::new().unwrap();
+        let repo = git2::Repository::init(dir.path()).unwrap();
+        tag_oid(&repo, "v2026.09.08", add_commit(&repo, "first"));
+        tag_oid(&repo, "v2026.10.01", add_commit(&repo, "second"));
+        let branch = current_branch_name(&repo);
+
+        let forge = LocalRepo::new(dir.path(), None).await.unwrap();
+        let mut result = forge
+            .get_latest_tags_for_prefix("v", &branch, None)
+            .await
+            .unwrap();
+        result.sort_by(|a, b| b.semver.cmp(&a.semver));
+
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].name, "v2026.10.01");
+        assert_eq!(result[0].semver, semver::Version::new(2026, 10, 1));
+        assert_eq!(result[1].semver, semver::Version::new(2026, 9, 8));
     }
 
     /// `create_branch` must create a branch pointing to current HEAD.

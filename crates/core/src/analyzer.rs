@@ -112,11 +112,9 @@ impl<'a> Analyzer<'a> {
             }
         }
 
-        let mut next_tag_name = next.to_string();
-
-        if let Some(prefix) = self.config.tag_prefix.as_ref() {
-            next_tag_name = format!("{prefix}{}", next);
-        }
+        let version = self.config.version_type.format_version(&next);
+        let prefix = self.config.tag_prefix.as_deref().unwrap_or_default();
+        let next_tag_name = format!("{prefix}{version}");
 
         let next_tag = Tag {
             name: next_tag_name,
@@ -144,6 +142,7 @@ impl<'a> Analyzer<'a> {
         }
 
         release.tag = next_tag;
+        release.version = version;
 
         let context = tera::Context::from_serialize(&release)?;
         let notes = tera::Tera::one_off(&self.config.body, &context, false)?;

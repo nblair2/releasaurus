@@ -34,6 +34,9 @@ struct ShadowRelease {
 pub struct Release {
     /// Associated version tag
     pub tag: Tag,
+    /// Version as rendered for templates (e.g. zero-padded CalVer). Falls
+    /// back to `tag.semver` when empty.
+    pub version: String,
     /// Release URL link
     pub link: String,
     /// Link to diff between new tag and previous release tag
@@ -74,11 +77,12 @@ impl From<ShadowRelease> for Release {
             timestamp: value.timestamp,
             tag: Tag {
                 name: value.tag_name,
-                semver: semver::Version::parse(&value.version)
+                semver: Tag::parse_version(&value.version)
                     .unwrap_or(semver::Version::new(0, 0, 0)),
                 sha: "".into(),
                 timestamp: None,
             },
+            version: value.version,
         }
     }
 }
@@ -87,6 +91,7 @@ impl std::fmt::Debug for Release {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Release")
             .field("tag", &self.tag)
+            .field("version", &self.version)
             .field("link", &self.link)
             .field("tag_compare_link", &self.tag_compare_link)
             .field("sha_compare_link", &self.sha_compare_link)
@@ -108,7 +113,11 @@ impl Serialize for Release {
         s.serialize_field("link", &self.link)?;
         s.serialize_field("tag_compare_link", &self.tag_compare_link)?;
         s.serialize_field("sha_compare_link", &self.sha_compare_link)?;
-        s.serialize_field("version", &self.tag.semver.to_string())?;
+        if self.version.is_empty() {
+            s.serialize_field("version", &self.tag.semver.to_string())?;
+        } else {
+            s.serialize_field("version", &self.version)?;
+        }
         s.serialize_field("tag_name", &self.tag.name)?;
         s.serialize_field("sha", &self.sha)?;
         s.serialize_field("short_sha", &self.short_sha)?;
@@ -221,6 +230,7 @@ mod tests {
     #[test]
     fn release_debug_excludes_commits_and_notes() {
         let release = Release {
+            version: String::new(),
             tag: Tag {
                 name: "v1.0.0".to_string(),
                 sha: "tag_sha".to_string(),
@@ -274,6 +284,7 @@ mod tests {
         };
 
         let release = Release {
+            version: String::new(),
             tag,
             link: "https://github.com/owner/repo/releases/tag/v2.1.0"
                 .to_string(),
@@ -317,6 +328,7 @@ mod tests {
     #[test]
     fn release_serialize_empty_commits() {
         let release = Release {
+            version: String::new(),
             tag: Tag::default(),
             link: "".to_string(),
             tag_compare_link: "".to_string(),
@@ -333,6 +345,26 @@ mod tests {
         let json = serde_json::to_value(&release).unwrap();
         assert!(json["commits"].is_array());
         assert_eq!(json["commits"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn release_padded_version_round_trips() {
+        let release = Release {
+            version: "2026.09.08".into(),
+            tag: Tag {
+                name: "v2026.09.08".into(),
+                semver: Version::new(2026, 9, 8),
+                ..Tag::default()
+            },
+            ..Release::default()
+        };
+
+        let json = serde_json::to_string(&release).unwrap();
+        let parsed: Release = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(parsed.version, "2026.09.08");
+        assert_eq!(parsed.tag.name, "v2026.09.08");
+        assert_eq!(parsed.tag.semver, Version::new(2026, 9, 8));
     }
 
     #[test]
@@ -356,6 +388,7 @@ mod tests {
         ];
 
         let release = Release {
+            version: String::new(),
             tag: Tag::default(),
             link: "".to_string(),
             tag_compare_link: "".to_string(),

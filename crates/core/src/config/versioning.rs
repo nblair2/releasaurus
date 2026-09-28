@@ -38,6 +38,24 @@ pub enum VersionType {
     DateWithTime,
     #[serde(rename = "year.month.day+hour.minute.second.micro")]
     DateWithTimeMicro,
+    #[serde(rename = "YYYY.0M.0D")]
+    DatePadded,
+    #[serde(rename = "YYYY.0M.0D+hour.minute.second")]
+    DatePaddedWithTime,
+    #[serde(rename = "YYYY.0M.0D+hour.minute.second.micro")]
+    DatePaddedWithTimeMicro,
+    #[serde(rename = "YY.MM.DD")]
+    ShortDate,
+    #[serde(rename = "YY.MM.DD+hour.minute.second")]
+    ShortDateWithTime,
+    #[serde(rename = "YY.MM.DD+hour.minute.second.micro")]
+    ShortDateWithTimeMicro,
+    #[serde(rename = "YY.0M.0D")]
+    ShortDatePadded,
+    #[serde(rename = "YY.0M.0D+hour.minute.second")]
+    ShortDatePaddedWithTime,
+    #[serde(rename = "YY.0M.0D+hour.minute.second.micro")]
+    ShortDatePaddedWithTimeMicro,
 }
 
 impl std::fmt::Display for VersionType {
@@ -50,6 +68,23 @@ impl std::fmt::Display for VersionType {
             VersionType::DateWithTimeMicro => {
                 "year.month.day+hour.minute.second.micro"
             }
+            VersionType::DatePadded => "YYYY.0M.0D",
+            VersionType::DatePaddedWithTime => "YYYY.0M.0D+hour.minute.second",
+            VersionType::DatePaddedWithTimeMicro => {
+                "YYYY.0M.0D+hour.minute.second.micro"
+            }
+            VersionType::ShortDate => "YY.MM.DD",
+            VersionType::ShortDateWithTime => "YY.MM.DD+hour.minute.second",
+            VersionType::ShortDateWithTimeMicro => {
+                "YY.MM.DD+hour.minute.second.micro"
+            }
+            VersionType::ShortDatePadded => "YY.0M.0D",
+            VersionType::ShortDatePaddedWithTime => {
+                "YY.0M.0D+hour.minute.second"
+            }
+            VersionType::ShortDatePaddedWithTimeMicro => {
+                "YY.0M.0D+hour.minute.second.micro"
+            }
         };
         write!(f, "{s}")
     }
@@ -61,12 +96,55 @@ impl VersionType {
     /// settings (prerelease, custom increment regexes) do not apply to
     /// these types.
     pub fn is_date_based(self) -> bool {
+        !matches!(self, VersionType::Semantic | VersionType::SemanticWithBuild)
+    }
+
+    /// Returns true for `YY.*` types, whose major is the year minus 2000.
+    pub fn is_short_year(self) -> bool {
         matches!(
             self,
-            VersionType::Date
-                | VersionType::DateWithTime
-                | VersionType::DateWithTimeMicro
+            VersionType::ShortDate
+                | VersionType::ShortDateWithTime
+                | VersionType::ShortDateWithTimeMicro
+                | VersionType::ShortDatePadded
+                | VersionType::ShortDatePaddedWithTime
+                | VersionType::ShortDatePaddedWithTimeMicro
         )
+    }
+
+    /// Returns true for `*.0M.0D` types, whose month and day are zero-padded
+    /// in tag names and templates.
+    pub fn is_zero_padded(self) -> bool {
+        matches!(
+            self,
+            VersionType::DatePadded
+                | VersionType::DatePaddedWithTime
+                | VersionType::DatePaddedWithTimeMicro
+                | VersionType::ShortDatePadded
+                | VersionType::ShortDatePaddedWithTime
+                | VersionType::ShortDatePaddedWithTimeMicro
+        )
+    }
+
+    /// Renders a version as it appears in tag names and templates. Semver
+    /// forbids leading zeros, so padded types only differ here; the
+    /// canonical `Version` (and every manifest) stays unpadded.
+    pub fn format_version(self, version: &semver::Version) -> String {
+        if !self.is_zero_padded() {
+            return version.to_string();
+        }
+
+        let mut s = format!(
+            "{}.{:02}.{:02}",
+            version.major, version.minor, version.patch
+        );
+        if !version.pre.is_empty() {
+            s.push_str(&format!("-{}", version.pre));
+        }
+        if !version.build.is_empty() {
+            s.push_str(&format!("+{}", version.build));
+        }
+        s
     }
 }
 
@@ -351,6 +429,36 @@ pub struct VersioningConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_calver_version_types_round_trip_and_format() {
+        let version = semver::Version::parse("2026.9.8+01.02.03").unwrap();
+        for (name, short_year, formatted) in [
+            ("year.month.day", false, "2026.9.8+01.02.03"),
+            ("YYYY.0M.0D", false, "2026.09.08+01.02.03"),
+            (
+                "YYYY.0M.0D+hour.minute.second",
+                false,
+                "2026.09.08+01.02.03",
+            ),
+            (
+                "YY.MM.DD+hour.minute.second.micro",
+                true,
+                "2026.9.8+01.02.03",
+            ),
+            ("YY.0M.0D", true, "2026.09.08+01.02.03"),
+        ] {
+            let json = format!("\"{name}\"");
+            let vt: VersionType = serde_json::from_str(&json).unwrap();
+            assert_eq!(serde_json::to_string(&vt).unwrap(), json);
+            assert_eq!(vt.to_string(), name);
+            assert!(vt.is_date_based());
+            assert_eq!(vt.is_short_year(), short_year, "{name}");
+            assert_eq!(vt.format_version(&version), formatted, "{name}");
+        }
+        assert!(!VersionType::Semantic.is_date_based());
+        assert!(!VersionType::SemanticWithBuild.is_date_based());
+    }
 
     #[test]
     fn test_group_equality() {

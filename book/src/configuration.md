@@ -271,6 +271,9 @@ to override the global value.
 | `year.month.day`                          | `2026.6.14`                 |
 | `year.month.day+hour.minute.second`       | `2026.6.14+15.30.45`        |
 | `year.month.day+hour.minute.second.micro` | `2026.6.14+15.30.45.123456` |
+| `YYYY.0M.0D`                              | `2026.06.14`                |
+| `YY.MM.DD`                                | `26.6.14`                   |
+| `YY.0M.0D`                                | `26.06.14`                  |
 
 ```toml
 [defaults.versioning]
@@ -291,6 +294,14 @@ versioning = { version_type = "year.month.day+hour.minute.second" }
   release per day** by design; a same-day re-run reports nothing to
   release. Use a time-based variant when you need multiple releases per
   day.
+- **`YYYY.0M.0D`**, **`YY.MM.DD`** and **`YY.0M.0D`** —
+  [CalVer](https://calver.org) spellings of `year.month.day` (`YY` is the
+  year minus 2000, `0M`/`0D` are zero-padded). Each also accepts the
+  `+hour.minute.second[.micro]` suffix. Zero-padding applies to the tag name
+  and the `{{ version }}` template variable only; manifest files get the
+  canonical semver (`2026.6.14`), since most ecosystems reject leading zeros.
+  Switching an existing project from a `YYYY` type to a `YY` type stalls
+  releases, because older `2026.*` tags always sort higher.
 
 `major.minor.patch` and `major.minor.patch+timestamp.sha` both honor
 `[prerelease]` (below) and the semver increment controls
